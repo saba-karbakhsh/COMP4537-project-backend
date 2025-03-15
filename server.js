@@ -4,7 +4,7 @@ let url = require('url');
 let messages = require('./messages');
 let hash = require('crypto').createHash('sha256');
 
-let connectionString = "";
+let connectionString = "mysql://doadmin:AVNS_bAESbdzLyVfOkEG9Dmu@comp4537db-do-user-18794098-0.m.db.ondigitalocean.com:25060/defaultdb?ssl-mode=REQUIRED";
 let con = db.createConnection(connectionString);
 
 con.connect(function (err) {
