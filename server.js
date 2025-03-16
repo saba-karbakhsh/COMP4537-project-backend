@@ -74,13 +74,13 @@ http.createServer(function (req, res) {
                     let data;
                     if (result[0].role === "admin") {
                         let sqlAdmin = "SELECT * FROM Users";
-                        con.query(sqlAdmin, function (err, result) {
+                        con.query(sqlAdmin, function (err, queryResult) {
                             if (err) throw err;
                             data = {
                                 email: result[0].email,
                                 role: result[0].role,
                                 apiCounter: result[0].apiCounter,
-                                usersData: result
+                                usersData: queryResult
                             };
                             
                             res.end(JSON.stringify(data));
