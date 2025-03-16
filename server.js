@@ -2,7 +2,8 @@ let http = require('http');
 let db = require('mysql2');
 let url = require('url');
 let messages = require('./messages');
-let hash = require('crypto').createHash('sha256');
+const crypto = require('crypto');
+
 
 let connectionString = "mysql://doadmin:AVNS_bAESbdzLyVfOkEG9Dmu@comp4537db-do-user-18794098-0.m.db.ondigitalocean.com:25060/defaultdb?ssl-mode=REQUIRED";
 let con = db.createConnection(connectionString);
@@ -33,7 +34,7 @@ http.createServer(function (req, res) {
         });
         req.on('end', () => {
             let userData = JSON.parse(body);
-            let hashedPassword = hash.update(userData.password).digest('hex');
+            let hashedPassword = crypto.createHash('sha256').update(userData.password).digest('hex');
             userData.password = hashedPassword;
             let sql = "INSERT INTO Users (email, password) VALUES ?";
             let values = [[userData.email, userData.password]];
@@ -50,7 +51,7 @@ http.createServer(function (req, res) {
         });
         req.on('end', () => {
             let userData = JSON.parse(body);
-            let hashedPassword = hash.update(userData.password).digest('hex');
+            let hashedPassword = crypto.createHash('sha256').update(userData.password).digest('hex');
             userData.password = hashedPassword;
             let sql = "SELECT * FROM Users WHERE email = ? AND password = ?";
             let values = [userData.email, userData.password];
