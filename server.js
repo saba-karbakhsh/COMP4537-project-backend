@@ -1,12 +1,12 @@
-let http = require('http');
-let db = require('mysql2');
-let url = require('url');
-let messages = require('./messages');
+const http = require('http');
+const db = require('mysql2');
+const url = require('url');
+const messages = require('./messages');
 const crypto = require('crypto');
 
 
-let connectionString = "mysql://doadmin:AVNS_bAESbdzLyVfOkEG9Dmu@comp4537db-do-user-18794098-0.m.db.ondigitalocean.com:25060/defaultdb?ssl-mode=REQUIRED";
-let con = db.createConnection(connectionString);
+const connectionString = "mysql://doadmin:AVNS_bAESbdzLyVfOkEG9Dmu@comp4537db-do-user-18794098-0.m.db.ondigitalocean.com:25060/defaultdb?ssl-mode=REQUIRED";
+const con = db.createConnection(connectionString);
 
 con.connect(function (err) {
     if (err) throw err;
@@ -42,7 +42,7 @@ http.createServer(function (req, res) {
         req.on('end', () => {
             let userData = JSON.parse(body);
             if (userEmails.includes(userData.email)) {
-                  res.end("Email already exists");
+                  res.end(messages.userMessages.userExists);
                 return;
             }else{
             let hashedPassword = crypto.createHash('sha256').update(userData.password).digest('hex');
@@ -51,7 +51,8 @@ http.createServer(function (req, res) {
             let values = [[userData.email, userData.password]];
             con.query(sql, [values], function (err, result) {
                 if (err) throw err;
-                res.end("User inserted");
+                userEmails.push(userData.email);
+                res.end(messages.userMessages.userInserted);
             });
             }
         });
@@ -84,7 +85,7 @@ http.createServer(function (req, res) {
                         res.end(data);
                     }
                 } else {
-                    res.end("User not found");
+                    res.end(messages.userMessages.userNotFound);
                 }
             });
         });
