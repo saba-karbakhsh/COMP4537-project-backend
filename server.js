@@ -76,13 +76,23 @@ http.createServer(function (req, res) {
                         let sqlAdmin = "SELECT * FROM Users";
                         con.query(sqlAdmin, function (err, result) {
                             if (err) throw err;
-                            data = JSON.stringify(result);
-                            res.end(data);
+                            data = {
+                                email: result[0].email,
+                                role: result[0].role,
+                                apiCounter: result[0].apiCounter,
+                                usersData: result
+                            };
+                            
+                            res.end(JSON.stringify(data));
                         });
                     }
                     else {
-                        data = result[0].email + " " + result[0].role + " " + result[0].apiCounter;
-                        res.end(data);
+                        data = {
+                            email: result[0].email,
+                            role: result[0].role,
+                            apiCounter: result[0].apiCounter
+                        };
+                        res.end(JSON.stringify(data));
                     }
                 } else {
                     res.end(messages.userMessages.userNotFound);
