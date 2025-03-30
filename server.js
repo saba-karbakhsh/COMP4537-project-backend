@@ -103,6 +103,7 @@ http.createServer(function (req, res) {
         });
         return res.end(JSON.stringify({ message:  messages.userMessages.CORS }));
     }
+    console.log("Request received:", req.method, q.pathname);
     if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -368,6 +369,7 @@ http.createServer(function (req, res) {
         });
 
     } else if (req.method === "PUT" && q.pathname === "/api/v1/resetPassword") {
+        console.log("Reset password request received");
         res.setHeader('Access-Control-Allow-Origin', "http://127.0.0.1:5501");
         res.setHeader('Access-Control-Allow-Credentials', 'true');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -381,7 +383,7 @@ http.createServer(function (req, res) {
         req.on('end', () => {
             const { email } = JSON.parse(body);
             if (!email) return res.end(JSON.stringify({ error: messages.userMessages.EmailRequired }));
-        });
+        
 
         incrementApiCounter(userID);
         // Check if email exists
@@ -412,7 +414,6 @@ http.createServer(function (req, res) {
                         }]
                     });
 
-
                     request
                         .then(result => {
                             res.end(JSON.stringify({ message: messages.userMessages.emailSent }));
@@ -423,6 +424,7 @@ http.createServer(function (req, res) {
                 });
             
         });
+    });
     
     } else if (req.method === "PUT" && q.pathname === "/api/v1/updatePassword") {
         res.setHeader('Access-Control-Allow-Origin', "http://127.0.0.1:5501");
