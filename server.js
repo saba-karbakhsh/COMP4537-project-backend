@@ -147,7 +147,7 @@ http.createServer(function (req, res) {
             const sql = "SELECT * FROM Users WHERE email = ?";
 
             con.query(sql, [userData.email], (err, result) => {
-                res.setHeader('Access-Control-Allow-Origin', "https://seashell-app-ywypc.ondigitalocean.app/");
+                res.setHeader('Access-Control-Allow-Origin', "https://seashell-app-ywypc.ondigitalocean.app");
                 res.setHeader('Access-Control-Allow-Credentials', 'true');
                 res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
                 res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
