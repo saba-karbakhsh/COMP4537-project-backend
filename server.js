@@ -15,6 +15,13 @@ const httpProxy = require('http-proxy');
 // Create a proxy server instance pointing to the Flask server
 const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt'});
 
+// Add CORS headers to all proxied responses
+proxy.on('proxyRes', (proxyRes, req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow all origins
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // Allowed headers
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE'); // Allowed methods
+});
+
 const con = db.createConnection({
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
