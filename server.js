@@ -154,15 +154,16 @@ http.createServer(function (req, res) {
     
         res.writeHead(200, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': req.headers.origin || 'http://localhost:8080',
+            'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Credentials': 'true'
         });
     
         const token = req.headers.cookie ? req.headers.cookie.split('; ').find(row => row.startsWith('token=')).split('=')[1] : null;
+        console.log("req header:", req.headers);
         console.log("Token from cookie:", token);
         if (!token) {
             console.log("No token provided");
-            // return res.end(JSON.stringify({ error: "No token provided" }));
+            return res.end(JSON.stringify({ error: "No token provided" }));
         }       
     
         const sessionSql = `
