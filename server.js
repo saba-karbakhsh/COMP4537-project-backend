@@ -149,7 +149,6 @@ http.createServer(function (req, res) {
             con.query(sql, [userData.email], (err, result) => {
                 res.setHeader('Access-Control-Allow-Origin', "https://seashell-app-ywypc.ondigitalocean.app");
                 res.setHeader('Access-Control-Allow-Credentials', 'true');
-                res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
                 res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
 
                 if (err) throw err;
@@ -197,7 +196,6 @@ http.createServer(function (req, res) {
         const allowedOrigin = req.headers.origin;
         res.setHeader('Access-Control-Allow-Origin', "https://seashell-app-ywypc.ondigitalocean.app");
         res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
         res.setHeader('Content-Type', 'application/json');
 
@@ -294,7 +292,6 @@ http.createServer(function (req, res) {
 
         res.setHeader('Access-Control-Allow-Origin', "https://seashell-app-ywypc.ondigitalocean.app");
         res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
         res.setHeader('Content-Type', 'application/json');
         let query = url.parse(req.url, true).query;
@@ -372,7 +369,6 @@ http.createServer(function (req, res) {
         console.log("Reset password request received");
         res.setHeader('Access-Control-Allow-Origin', "https://seashell-app-ywypc.ondigitalocean.app");
         res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
         res.setHeader('Content-Type', 'application/json');
         let query = url.parse(req.url, true).query;
