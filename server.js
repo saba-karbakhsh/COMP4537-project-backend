@@ -151,6 +151,7 @@ http.createServer(function (req, res) {
                 res.setHeader('Access-Control-Allow-Credentials', 'true');
                 res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
                 res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+                res.setHeader('Content-Type', 'application/json');
                 
                 if (err) throw err;
                 if (result.length === 0) return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
@@ -199,6 +200,7 @@ http.createServer(function (req, res) {
         res.setHeader('Access-Control-Allow-Credentials', 'true');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        res.setHeader('Content-Type', 'application/json');
         
         const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
         if (!token) {
@@ -295,6 +297,7 @@ http.createServer(function (req, res) {
 res.setHeader('Access-Control-Allow-Credentials', 'true');
 res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        res.setHeader('Content-Type', 'application/json');
 
         let query = url.parse(req.url, true).query;
         let userID = query.userID;
@@ -373,6 +376,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
         res.setHeader('Access-Control-Allow-Credentials', 'true');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        res.setHeader('Content-Type', 'application/json');
         
         let query = url.parse(req.url, true).query;
         let userID = query.userID;
