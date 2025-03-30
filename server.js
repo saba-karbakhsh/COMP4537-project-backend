@@ -3,6 +3,7 @@ const db = require('mysql2');
 const url = require('url');
 const messages = require('./messages');
 const crypto = require('crypto');
+const { console } = require('inspector');
 
 require('dotenv').config();
 const connectionString = process.env.DB_CONNECTION_STRING;
@@ -64,7 +65,6 @@ con.connect(err => {
 http.createServer(function (req, res) {
 
     let q = url.parse(req.url, true);
-    console.log("Request received:", q.pathname, "Method:", req.method);
     if (req.method === "POST" && q.pathname === "/signup") {
         postCounter++;
         console.log("POST request received");
@@ -118,7 +118,7 @@ http.createServer(function (req, res) {
 
                     const sessionToken = crypto.randomBytes(64).toString('hex');
                     const maxAge = 60;
-                    const allowedOrigin = req.headers.origin;
+                    const allowedOrigin = req.headers.origin || 'https://seashell-app-ywypc.ondigitalocean.app';
 
                     res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
                     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -140,8 +140,7 @@ http.createServer(function (req, res) {
                         'Content-Type': 'text/plain'
                     });
 
-
-                    res.end("Login successful");
+                    res.end(JSON.stringify({message:"Login successful", userID: user.userID}));
 
                 });
             });
@@ -149,79 +148,87 @@ http.createServer(function (req, res) {
        
     }else if(req.method === "GET" && q.pathname === "/index") {
         getCounter++;
-        res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-        res.writeHead(200, {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Credentials': 'true'
-        });
+        const allowedOrigin = req.headers.origin || 'https://seashell-app-ywypc.ondigitalocean.app';
+        res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Content-Type', 'application/json');
+        
+        const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
     
-        const token = req.headers.cookie ? req.headers.cookie.split('; ').find(row => row.startsWith('token=')).split('=')[1] : null;
-       
         if (!token) {
-            console.log("No token provided");
             return res.end(JSON.stringify({ error: "No token provided" }));
-        }       
+        }
     
         const sessionSql = `
-        SELECT Users.userID, Users.email, Users.role
-        FROM Sessions
-        JOIN Users ON Sessions.userID = Users.userID
-        WHERE Sessions.token = ?
-    `;
-
-    con.query(sessionSql, [token], (err, result) => {
-        if (err) throw err;
-
-        if (result.length === 0) {
-            return res.end(JSON.stringify({ error: "Invalid token" }));
-        }
-
-        const user = result[0];
-
-        console.log("User found:", user);
-        if (user.role === 'admin') {
-            // Admin: get all users and their API counters
-            const allUsersSql = `
-                SELECT Users.userID, Users.email, Users.role, API.apiCounter
-                FROM Users
-                LEFT JOIN API ON Users.userID = API.userID
-            `;
-
-            con.query(allUsersSql, (err, allResults) => {
-                if (err) throw err;
-
-                console.log("Admin data sent:", allResults);
-                return res.end(JSON.stringify({
-                    role: 'admin',
-                    usersData: allResults
-                }));
-            });
-
-        } else {
-            // Regular user: get their API counter
-            const userApiSql = `
-                SELECT apiCounter FROM API WHERE userID = ?
-            `;
-            con.query(userApiSql, [user.userID], (err, apiResult) => {
-                if (err) throw err;
-
-                const apiCounter = apiResult.length > 0 ? apiResult[0].apiCounter : 0;
-
-                const userData = {
-                    email: user.email,
-                    role: user.role,
-                    userID: user.userID,
-                    apiCounter: apiCounter
-                };
-
-                console.log("User data sent to GET:", userData);
-                return res.end(JSON.stringify(userData));
-            });
-        }
-    });
+            SELECT Sessions.createdAt, Users.userID, Users.email, Users.role
+            FROM Sessions
+            JOIN Users ON Sessions.userID = Users.userID
+            WHERE Sessions.token = ?
+        `;
     
+        con.query(sessionSql, [token], (err, result) => {
+            if (err) throw err;
+    
+            if (result.length === 0) {
+                return res.end(JSON.stringify({ error: "Invalid token" }));
+            }
+    
+            const session = result[0];
+            const now = new Date();
+            const createdAt = new Date(session.createdAt);
+            const ageInMs = now - createdAt;
+    
+            // Invalidate if older than 1 minute (60,000 ms)
+            if (ageInMs > 60000) {
+                console.log("Session expired");
+    
+                con.query("DELETE FROM Sessions WHERE token = ?", [token], (err) => {
+                    if (err) console.error("Failed to delete expired session:", err);
+                });
+    
+                return res.end(JSON.stringify({ error: "Session expired. Please log in again." }));
+            }
+    
+            const user = session;
+    
+            if (user.role === 'admin') {
+                const allUsersSql = `
+                    SELECT Users.userID, Users.email, Users.role, API.apiCounter
+                    FROM Users
+                    LEFT JOIN API ON Users.userID = API.userID
+                `;
+    
+                con.query(allUsersSql, (err, allResults) => {
+                    if (err) throw err;
+                    return res.end(JSON.stringify({
+                        role: 'admin',
+                        usersData: allResults
+                    }));
+                });
+    
+            } else {
+                const userApiSql = `SELECT apiCounter FROM API WHERE userID = ?`;
+    
+                con.query(userApiSql, [user.userID], (err, apiResult) => {
+                    if (err) throw err;
+    
+                    const apiCounter = apiResult.length > 0 ? apiResult[0].apiCounter : 0;
+    
+                    const userData = {
+                        email: user.email,
+                        role: user.role,
+                        userID: user.userID,
+                        apiCounter: apiCounter
+                    };
+    
+                    return res.end(JSON.stringify(userData));
+                });
+            }
+        });
+
     }
 }).listen(8080);
 
