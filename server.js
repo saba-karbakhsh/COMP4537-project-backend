@@ -1,53 +1,78 @@
 const http = require('http');
+const fs = require('fs');
 const db = require('mysql2');
 const url = require('url');
 const messages = require('./messages');
 const crypto = require('crypto');
-const { console } = require('inspector');
-
+const Mailjet = require('node-mailjet');
 require('dotenv').config();
-const connectionString = process.env.DB_CONNECTION_STRING;
-const con = db.createConnection(connectionString);
+const mailjet = Mailjet.apiConnect(
+    process.env.MJ_APIKEY_PUBLIC,
+    process.env.MJ_APIKEY_PRIVATE
+);
+
+const con = db.createConnection({
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    ssl: {
+        ca: fs.readFileSync('./ca-certificate.crt')
+    }
+});
+
+const maxApiCalls = 20; // Maximum API calls allowed
+
 let userEmails = [];
 con.connect(err => {
+    if (err) throw err;
+    console.log("Connected!");
+
+    con.query("CREATE DATABASE IF NOT EXISTS DB", (err) => {
         if (err) throw err;
-        console.log("Connected!");
-    
-        con.query("CREATE DATABASE IF NOT EXISTS DB", (err) => {
+        console.log("Database created");
+
+        con.query("USE DB", (err) => {
             if (err) throw err;
-            console.log("Database created");
-    
-            con.query("USE DB", (err) => {
-                if (err) throw err;
-    
-                const userTable = `CREATE TABLE IF NOT EXISTS Users (
+
+            const userTable = `CREATE TABLE IF NOT EXISTS Users (
                     userID INT AUTO_INCREMENT PRIMARY KEY,
                     email VARCHAR(100) NOT NULL UNIQUE,
                     password VARCHAR(255) NOT NULL,
                     role VARCHAR(100) DEFAULT 'user',
                     salt VARCHAR(255)
                 ) ENGINE=InnoDB`;
-    
-                const apiTable = `CREATE TABLE IF NOT EXISTS API (
+
+            const apiTable = `CREATE TABLE IF NOT EXISTS API (
                     apiID INT AUTO_INCREMENT PRIMARY KEY,
                     userID INT,
-                    apiCounter INT DEFAULT 20,
-                    FOREIGN KEY (userID) REFERENCES Users(userID)
+                    apiCounter INT DEFAULT 0,
+                    FOREIGN KEY (userID) REFERENCES Users(userID) ON DELETE CASCADE
                 ) ENGINE=InnoDB`;
-    
-                const sessionTable = `CREATE TABLE IF NOT EXISTS Sessions (
+
+            const sessionTable = `CREATE TABLE IF NOT EXISTS Sessions (
                     token VARCHAR(255) PRIMARY KEY,
                     userID INT,
                     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB`;
-    
-                con.query(userTable, (err) => {
+
+            const resetTokenTable = `CREATE TABLE IF NOT EXISTS ResetTokens (
+                id INT AUTO_INCREMENT PRIMARY KEY,    
+                email VARCHAR(100),
+                     token VARCHAR(255),
+                     expiresAt DATETIME
+                ) ENGINE=InnoDB;`
+            con.query(userTable, (err) => {
+                if (err) throw err;
+                con.query(apiTable, (err) => {
                     if (err) throw err;
-                    con.query(apiTable, (err) => {
+                    con.query(sessionTable, (err) => {
                         if (err) throw err;
-                        con.query(sessionTable, (err) => {
+                        console.log("All tables ensured.");
+                        con.query(resetTokenTable, (err) => {
                             if (err) throw err;
-                            console.log("All tables ensured.");
+                            console.log("ResetTokens table ensured.");
                             con.query("SELECT email FROM Users", function (err, result) {
                                 if (err) throw err;
                                 userEmails = result.map(row => row.email);
@@ -58,72 +83,87 @@ con.connect(err => {
             });
         });
     });
-    
-    let postCounter = 0;
-    let getCounter = 0;
-    
+});
+
+let postCounter = 0;
+let getCounter = 0;
+let deleteCounter = 0;
+let putCounter = 0;
+
 http.createServer(function (req, res) {
 
     let q = url.parse(req.url, true);
-    if (req.method === "POST" && q.pathname === "/signup") {
+    console.log("Request received:", req.method, q.pathname);
+    if (req.method === "OPTIONS") {
+        res.writeHead(204, {
+            'Access-Control-Allow-Origin': "http://127.0.0.1:5501",
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE, PUT'
+        });
+        return res.end(JSON.stringify({ message:  messages.userMessages.CORS }));
+    }
+    if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
-        console.log("POST request received");
-        res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         let body = '';
         req.on('data', chunk => {
             body += chunk.toString();
         });
         req.on('end', () => {
             let userData = JSON.parse(body);
+            incrementApiCounter(userData.userID);
             if (userEmails.includes(userData.email)) {
-                  res.end(messages.userMessages.userExists);
+                res.end(JSON.stringify({ error: messages.userMessages.userExists }));
                 return;
-            }else{
-           
-            let salt = crypto.randomBytes(16).toString('hex');
-            let hashedPassword = crypto.pbkdf2Sync(userData.password, salt, 100000, 64, 'sha512').toString('hex');
-            userData.password = hashedPassword;
-            con.query("INSERT INTO Users (email, password, salt) VALUES (?, ?, ?)", [userData.email, userData.password, salt], function (err, result) {
-                if (err) throw err;
-                let sqlApi = "INSERT INTO API (userID) VALUES (?)";
-                let values = [result.insertId];
-                con.query(sqlApi, values, function (err, result) {
+            } else {
+
+                let salt = crypto.randomBytes(16).toString('hex');
+                let hashedPassword = crypto.pbkdf2Sync(userData.password, salt, 100000, 64, 'sha512').toString('hex');
+                userData.password = hashedPassword;
+                con.query("INSERT INTO Users (email, password, salt) VALUES (?, ?, ?)", [userData.email, userData.password, salt], function (err, result) {
                     if (err) throw err;
+                    let sqlApi = "INSERT INTO API (userID) VALUES (?)";
+                    let values = [result.insertId];
+                    con.query(sqlApi, values, function (err, result) {
+                        if (err) throw err;
+                    });
+                    userEmails.push(userData.email);
+                    res.end(JSON.stringify({ message: messages.userMessages.userCreated }));
                 });
-                userEmails.push(userData.email);
-                res.end(messages.userMessages.userInserted);
-            });
-           
+
             }
         });
-    } else if (req.method === "POST" && q.pathname === "/login") {
-        postCounter++;
+    } else if (req.method === "POST" && q.pathname === "/api/v1/login") {
+        let query = url.parse(req.url, true).query;
+        let userID = query.userID;
         postCounter++;
         let body = '';
         req.on('data', chunk => body += chunk.toString());
         req.on('end', () => {
             const userData = JSON.parse(body);
+            incrementApiCounter(userID);
             const sql = "SELECT * FROM Users WHERE email = ?";
 
             con.query(sql, [userData.email], (err, result) => {
+                res.setHeader('Access-Control-Allow-Origin', "http://127.0.0.1:5501");
+                res.setHeader('Access-Control-Allow-Credentials', 'true');
+                res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+                res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+
                 if (err) throw err;
-                if (result.length === 0) return res.end(messages.userMessages.userNotFound);
+                if (result.length === 0) return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
 
                 const user = result[0];
                 crypto.pbkdf2(userData.password, user.salt, 100000, 64, 'sha512', (err, derivedKey) => {
                     if (err) throw err;
                     if (derivedKey.toString('hex') !== user.password) {
-                        return res.end(messages.userMessages.userNotFound);
+                        return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
                     }
 
                     const sessionToken = crypto.randomBytes(64).toString('hex');
-                    const maxAge = 60;
-                    const allowedOrigin = req.headers.origin || 'https://seashell-app-ywypc.ondigitalocean.app';
+                    const maxAge = 60 * 60 * 24;
 
-                    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-                    res.setHeader('Access-Control-Allow-Credentials', 'true');
-                    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-                    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
                     const checkSessionSql = "SELECT * FROM Sessions WHERE userID = ?";
                     con.query(checkSessionSql, [user.userID], (err, sessionResult) => {
@@ -132,267 +172,306 @@ http.createServer(function (req, res) {
                             ? "UPDATE Sessions SET token = ? WHERE userID = ?"
                             : "INSERT INTO Sessions (token, userID) VALUES (?, ?)";
                         con.query(sessionSQL, [sessionToken, user.userID], (err) => {
-                            if (err) throw err;                            
+                            if (err) throw err;
+
+                            res.writeHead(200, {
+                                'Set-Cookie': `token=${sessionToken}; HttpOnly; Max-Age=${maxAge};SameSite=None; Secure`,
+                                'Content-Type': 'application/json',
+                            });
+
+                            res.end(JSON.stringify({ message: messages.userMessages.userLogin, userID: user.userID }));
                         });
                     });
-                    res.writeHead(200, {
-                        'Set-Cookie': `token=${sessionToken}; HttpOnly; Max-Age=${maxAge}; SameSite=Lax`,
-                        'Content-Type': 'text/plain'
-                    });
-
-                    res.end(JSON.stringify({message:"Login successful", userID: user.userID}));
-
                 });
             });
         });
-       
-    }else if(req.method === "GET" && q.pathname === "/index") {
-        getCounter++;
 
-        const allowedOrigin = req.headers.origin || 'https://seashell-app-ywypc.ondigitalocean.app';
-        res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    } else if (req.method === "GET" && q.pathname === "/api/v1/index") {
+        getCounter++;
+        let query = url.parse(req.url, true).query;
+        let userID = query.userID;
+        let error = null;
+        incrementApiCounter(userID);
+
+        const allowedOrigin = req.headers.origin;
+        res.setHeader('Access-Control-Allow-Origin', "http://127.0.0.1:5501");
         res.setHeader('Access-Control-Allow-Credentials', 'true');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
         res.setHeader('Content-Type', 'application/json');
-        
+
         const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
-    console.log("Token from cookie:", token);
         if (!token) {
-            return res.end(JSON.stringify({ error: "No token provided" }));
+            return res.end(JSON.stringify({ error: messages.userMessages.noToken }));
         }
-    
+        con.query("SELECT * FROM Sessions", (err, result) => {
+            if (err) throw err;
+
+            if (result.length === 0) {
+                return res.end(JSON.stringify({ error: messages.userMessages.noSession }));
+            }
+        });
+
         const sessionSql = `
-            SELECT Sessions.createdAt, Users.userID, Users.email, Users.role
-            FROM Sessions
+            SELECT Users.email, Users.role, Users.userID
+            FROM Sessions   
             JOIN Users ON Sessions.userID = Users.userID
             WHERE Sessions.token = ?
         `;
-    
+
         con.query(sessionSql, [token], (err, result) => {
             if (err) throw err;
-    
+
+            // console.log("Session result:", result);
             if (result.length === 0) {
-                return res.end(JSON.stringify({ error: "Invalid token" }));
+                return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
             }
-    
+
             const session = result[0];
             const now = new Date();
             const createdAt = new Date(session.createdAt);
             const ageInMs = now - createdAt;
-    
+
             // Invalidate if older than 1 minute (60,000 ms)
             if (ageInMs > 60000) {
-                console.log("Session expired");
-    
+
                 con.query("DELETE FROM Sessions WHERE token = ?", [token], (err) => {
                     if (err) console.error("Failed to delete expired session:", err);
                 });
-    
-                return res.end(JSON.stringify({ error: "Session expired. Please log in again." }));
+
+                return res.end(JSON.stringify({ error: messages.userMessages.sessionExpired }));
             }
-    
+
             const user = session;
-    
+
             if (user.role === 'admin') {
                 const allUsersSql = `
                     SELECT Users.userID, Users.email, Users.role, API.apiCounter
                     FROM Users
                     LEFT JOIN API ON Users.userID = API.userID
                 `;
-    
+
                 con.query(allUsersSql, (err, allResults) => {
+                    allResults = allResults.filter(user => user.role !== 'admin');
                     if (err) throw err;
+                    
                     return res.end(JSON.stringify({
                         role: 'admin',
+                        email: user.email,
+                        userID: user.userID,
+                        putCounter: putCounter,
+                        postCounter: postCounter,
+                        getCounter: getCounter,
+                        deleteCounter: deleteCounter,
                         usersData: allResults
                     }));
                 });
-    
+
             } else {
                 const userApiSql = `SELECT apiCounter FROM API WHERE userID = ?`;
-    
+
                 con.query(userApiSql, [user.userID], (err, apiResult) => {
                     if (err) throw err;
-    
+
                     const apiCounter = apiResult.length > 0 ? apiResult[0].apiCounter : 0;
-    
+
                     const userData = {
                         email: user.email,
                         role: user.role,
                         userID: user.userID,
                         apiCounter: apiCounter
                     };
-    
+
                     return res.end(JSON.stringify(userData));
                 });
             }
         });
 
     }
+    else if (req.method === "DELETE" && q.pathname === "/api/v1/deleteUser") {
+        deleteCounter++;
+
+        res.setHeader('Access-Control-Allow-Origin', "http://127.0.0.1:5501");
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        res.setHeader('Content-Type', 'application/json');
+        let query = url.parse(req.url, true).query;
+        let userID = query.userID;
+        incrementApiCounter(userID);
+        const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+        if (!token) {
+            return res.end(JSON.stringify({ error: messages.userMessages.noToken }));
+        }
+        con.query("SELECT * FROM Sessions", (err, result) => {
+            if (err) throw err;
+
+            if (result.length === 0) {
+                return res.end(JSON.stringify({ error: messages.userMessages.noSession }));
+            }
+        });
+
+        const sessionSql = `
+            SELECT Users.email, Users.role, Users.userID
+            FROM Sessions   
+            JOIN Users ON Sessions.userID = Users.userID
+            WHERE Sessions.token = ?
+        `;
+
+        con.query(sessionSql, [token], (err, result) => {
+            if (err) throw err;
+
+            // console.log("Session result:", result);
+            if (result.length === 0) {
+                return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
+            }
+
+            const session = result[0];
+            const now = new Date();
+            const createdAt = new Date(session.createdAt);
+            const ageInMs = now - createdAt;
+
+            // Invalidate if older than 1 minute (60,000 ms)
+            if (ageInMs > 60000 * 60000 * 24) {
+
+                con.query("DELETE FROM Sessions WHERE token = ?", [token], (err) => {
+                    if (err) console.error("Failed to delete expired session:", err);
+                });
+
+                return res.end(JSON.stringify({ error: messages.userMessages.sessionExpired }));
+            }
+
+
+            let body = '';
+            req.on('data', chunk => body += chunk.toString());
+            req.on('end', () => {
+                const userData = JSON.parse(body);
+                console.log("User ID:", userID);
+                con.query("SELECT * FROM Users WHERE userID = ?", [userID], (err, result) => {
+                    if (err) throw err;
+                    console.log("User data:", result);
+                    if (result.length === 0) return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
+                    if (result[0].role !== "admin") return res.end(JSON.stringify({ error: messages.userMessages.notAuthorizedForDeleting }));
+
+                    const sql = "DELETE FROM Users WHERE email = ?";
+                    con.query(sql, [userData.email], (err, result) => {
+
+                        if (err) throw err;
+                        console.log("Deleted user:", result);
+                        if (result.affectedRows === 0) return res.end(messages.userMessages.userNotFound);
+                        userEmails = userEmails.filter(email => email !== userData.email);
+                        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': "http://127.0.0.1:5501" , 'Access-Control-Allow-Credentials': 'true' });
+                        res.end(JSON.stringify({ message: messages.userMessages.userDeleted }));
+                    });
+                });
+            });
+        });
+
+    } else if (req.method === "PUT" && q.pathname === "/api/v1/resetPassword") {
+        res.setHeader('Access-Control-Allow-Origin', "http://127.0.0.1:5501");
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        res.setHeader('Content-Type', 'application/json');
+        let query = url.parse(req.url, true).query;
+        let userID = query.userID;
+        putCounter++;
+        let body = '';
+        req.on('data', chunk => body += chunk.toString());
+        req.on('end', () => {
+            const { email } = JSON.parse(body);
+            if (!email) return res.end(JSON.stringify({ error: messages.userMessages.EmailRequired }));
+        });
+
+        incrementApiCounter(userID);
+        // Check if email exists
+        con.query("SELECT * FROM Users WHERE email = ?", [email], (err, result) => {
+            if (err) throw err;
+            if (result.length === 0) return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
+
+            const token = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date(Date.now() + 3600000); // 1 hour expiry
+
+            con.query("INSERT INTO ResetTokens (email, token, expiresAt) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE token=?, expiresAt=?",
+                [email, token, expiresAt, token, expiresAt], (err) => {
+                    if (err) throw err;
+
+                    // Send Mailjet email
+
+
+
+                    const resetUrl = `http://127.0.0.1:5501/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
+
+                    const request = mailjet.post("send", { 'version': 'v3.1' }).request({
+                        "Messages": [{
+                            "From": { "Email": "saba.karbakhsh@gmail.com", "Name": "COMP4537" },
+                            "To": [{ "Email": email }],
+                            "Subject": "Password Reset Request",
+                            "TextPart": `Click this link to reset your password: ${resetUrl}`,
+                            "HTMLPart": `<h3>Password Reset</h3><p>Click <a href="${resetUrl}">here</a> to reset your password.</p>`
+                        }]
+                    });
+
+
+                    request
+                        .then(result => {
+                            res.end(JSON.stringify({ message: messages.userMessages.emailSent }));
+                        })
+                        .catch(err => {
+                            res.end(JSON.stringify({ error: messages.userMessages.emailNotSent }));
+                        });
+                });
+            
+        });
+    
+    } else if (req.method === "PUT" && q.pathname === "/api/v1/updatePassword") {
+        res.setHeader('Access-Control-Allow-Origin', "http://127.0.0.1:5501");
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Content-Type', 'application/json');
+    let body = '';
+    req.on('data', chunk => body += chunk.toString());
+    req.on('end', () => {
+        const { email, token, newPassword } = JSON.parse(body);
+        con.query("SELECT * FROM USERS WHERE email = ?", [email], (err, result) => {
+            if (err) throw err;
+            userID = result[0].userID;
+            incrementApiCounter(userID);
+            if (!email || !token || !newPassword) {
+                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': "http://127.0.0.1:5501" })
+                return res.end(JSON.stringify({ error: messages.userMessages.invalidReq }));
+            }
+
+            con.query("SELECT * FROM ResetTokens WHERE email = ? AND token = ?", [email, token], (err, result) => {
+                if (err) throw err;
+                if (result.length === 0 || new Date(result[0].expiresAt) < new Date()) {
+                    res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': "http://127.0.0.1:5501" })
+                    return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
+                }
+
+                // Hash new password
+                const salt = crypto.randomBytes(16).toString('hex');
+                const hashedPassword = crypto.pbkdf2Sync(newPassword, salt, 100000, 64, 'sha512').toString('hex');
+
+                con.query("UPDATE Users SET password = ?, salt = ? WHERE email = ?", [hashedPassword, salt, email], (err) => {
+                    if (err) throw err;
+
+                    con.query("DELETE FROM ResetTokens WHERE email = ?", [email]);
+                    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': "http://127.0.0.1:5501" });
+                    res.end(JSON.stringify({ message: messages.userMessages.passwordUpdated }));
+                });
+            });
+        });
+    });
+
+}
+
 }).listen(8080);
 
 
-// let data;
-//      if (user.role === "admin") {
-//     let sqlAdmin = "SELECT * FROM Users JOIN API ON Users.userID = API.userID";
-//     con.query(sqlAdmin, function (err, queryResult) {
-//         if (err) throw err;
-//         data = {
-//             email: user.email,
-//             role: user.role,
-//             apiCounter: user.apiCounter,
-//             usersData: queryResult
-//         };
-//         console.log("Data sent to admin:", data);
-//         res.end(JSON.stringify(data));
-//     });
-// }
-// else {
-//     let sqlClient = "SELECT apiCounter FROM API WHERE userID = ?";
-//     con.query(sqlClient, [user.userID], function (err, queryResult) {
-//         if (err) throw err;
-//         user.apiCounter = queryResult[0]?.apiCounter || 0;
-//         data = {
-//             email: user.email,
-//             role: user.role,
-//             apiCounter: user.apiCounter
-//         };
-//         console.log("Data sent to client:", data);
-//         res.end(JSON.stringify(data));
-//     });
-    
-// }
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// const http = require('http');
-// const db = require('mysql2');
-// const url = require('url');
-// const crypto = require('crypto');
-// require('dotenv').config();
-
-// const connectionString = process.env.DB_CONNECTION_STRING;
-// const con = db.createConnection(connectionString);
-// let userEmails = [];
-
-// 
-// http.createServer((req, res) => {
-//     const q = url.parse(req.url, true);
-
-//    
-//  else if (req.method === "POST" && q.pathname === "/login") {
-//         
-
-//     }  else if (req.method === "GET" && q.pathname === "/index") {
-//             getCounter++;
-//             console.log("GET request received");
-//             console.log("GET counter: ", req.headers.cookie);
-        
-//             // console.log("cook ", req.headers.cookie);
-//             // console.log("req ", req.headers);
-//             res.writeHead(200, {
-//                 'Content-Type': 'application/json',
-//                 'Access-Control-Allow-Origin': req.headers.origin || 'http://localhost:8080',
-//                 'Access-Control-Allow-Credentials': 'true'
-//             });
-        
-//             const token = getCookies(req).token;
-//             if (!token) {
-//                 console.log("No token provided");
-//                 return res.end(JSON.stringify({ error: "No token provided" }));
-//             }
-        
-//             const sessionSql = `
-//                 SELECT Users.email, Users.role, Users.userID
-//                 FROM Sessions
-//                 JOIN Users ON Sessions.userID = Users.userID
-//                 WHERE Sessions.token = ?
-//             `;
-        
-//             con.query(sessionSql, [token], (err, result) => {
-//                 if (err) throw err;
-//                 if (result.length === 0)
-//                     return res.end(JSON.stringify({ error: "no token" }));
-        
-//                 const user = result[0];
-//                 console.log("User found:", user);
-//                 const userData = {
-//                     email: user.email,
-//                     role: user.role,
-//                     userID: user.userID
-//                 };
-//                 console.log("User data sent to GET:", userData);
-//                 res.end(JSON.stringify(userData));
-//             });
-        
-//         } else {
-//         console.log("Unknown endpoint");
-//         res.writeHead(404, { 'Content-Type': 'text/plain' });
-//         res.end("Endpoint not found");
-//     }
-// }).listen(8080);
-
-// function getCookies(req) {
-//     const cookies = {};
-//     const rawCookies = req.headers.cookie;
-//     // console.log("Raw Cookies:", rawCookies);
-//     // console.log("Cookies:", req.headers);
-//     if (!rawCookies) return cookies;
-//     rawCookies.split(';').forEach(cookie => {
-//         const parts = cookie.split('=');
-//         cookies[parts[0].trim()] = decodeURIComponent(parts[1]);
-//     });
-//     return cookies;
-// }
-
-
-
-
-
-
-// // if (user.role === "admin") {
-// //     con.query("SELECT * FROM Users", (err, usersResult) => {
-// //         if (err) throw err;
-// //         con.query("SELECT * FROM API", (err, apiResult) => {
-// //             if (err) throw err;
-// //             const data = {
-// //                 email: user.email,
-// //                 role: user.role,
-// //                 userApiCounters: apiResult,
-// //                 usersData: usersResult
-// //             };
-// //             console.log("Data sent to admin:", data);
-// //             res.end(JSON.stringify(data));
-// //         });
-// //     });
-// // } else {
-// //     con.query("SELECT apiCounter FROM API WHERE userID = ?", [user.userID], (err, apiResult) => {
-// //         if (err) throw err;
-// //         const apiCounter = apiResult[0]?.apiCounter || 0;
-// //         const data = {
-// //             email: user.email,
-// //             role: user.role,
-// //             apiCounter: apiCounter
-// //         };
-// //         console.log("Data sent to client:", data);
-// //         res.end(JSON.stringify(data));
-// //     });
-// // }
+function incrementApiCounter(userID) {
+    con.query("UPDATE API SET apiCounter = apiCounter + 1 WHERE userID = ?", [userID], (err, result) => {
+        if (err) throw err;
+    });
+}
