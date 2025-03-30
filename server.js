@@ -26,6 +26,8 @@ const con = db.createConnection({
     }
 });
 
+const SESSION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+
 const maxApiCalls = 20; // Maximum API calls allowed
 
 let userEmails = [];
@@ -63,7 +65,7 @@ con.connect(err => {
 
             const resetTokenTable = `CREATE TABLE IF NOT EXISTS ResetTokens (
                 id INT AUTO_INCREMENT PRIMARY KEY,    
-                email VARCHAR(100),
+                email VARCHAR(100) UNIQUE,
                      token VARCHAR(255),
                      expiresAt DATETIME
                 ) ENGINE=InnoDB;`
@@ -145,6 +147,7 @@ http.createServer(function (req, res) {
             let userData = JSON.parse(body);
             incrementApiCounter(userData.userID);
             if (userEmails.includes(userData.email)) {
+                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                 res.end(JSON.stringify({ error: messages.userMessages.userExists }));
                 return;
             } else {
@@ -166,35 +169,35 @@ http.createServer(function (req, res) {
             }
         });
     } else if (req.method === "POST" && q.pathname === "/api/v1/login") {
-        let query = url.parse(req.url, true).query;
-        let userID = query.userID;
+        
         postCounter++;
         let body = '';
         req.on('data', chunk => body += chunk.toString());
         req.on('end', () => {
             const userData = JSON.parse(body);
-            incrementApiCounter(userID);
             const sql = "SELECT * FROM Users WHERE email = ?";
 
             con.query(sql, [userData.email], (err, result) => {
-                res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
-                res.setHeader('Access-Control-Allow-Credentials', 'true');
-                res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-                res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+                setCORSHeaders(res);
+
                 res.setHeader('Content-Type', 'application/json');
                 
                 if (err) throw err;
-                if (result.length === 0) return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
+                if (result.length === 0){
+                    res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+                    return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
+                } 
 
                 const user = result[0];
                 crypto.pbkdf2(userData.password, user.salt, 100000, 64, 'sha512', (err, derivedKey) => {
                     if (err) throw err;
                     if (derivedKey.toString('hex') !== user.password) {
+                        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                         return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
                     }
 
                     const sessionToken = crypto.randomBytes(64).toString('hex');
-                    const maxAge = 60 * 60 * 24;
+                    const maxAge = SESSION_EXPIRY_MS / 1000; // Convert to seconds
 
 
                     const checkSessionSql = "SELECT * FROM Sessions WHERE userID = ?";
@@ -211,6 +214,8 @@ http.createServer(function (req, res) {
                                 'Content-Type': 'application/json',
                             });
 
+                            incrementApiCounter(user.userID);
+
                             res.end(JSON.stringify({ message: messages.userMessages.userLogin, userID: user.userID }));
                         });
                     });
@@ -226,20 +231,20 @@ http.createServer(function (req, res) {
         incrementApiCounter(userID);
 
         const allowedOrigin = req.headers.origin;
-        res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        setCORSHeaders(res);
+
         res.setHeader('Content-Type', 'application/json');
         
         const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
         if (!token) {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
             return res.end(JSON.stringify({ error: messages.userMessages.noToken }));
         }
         con.query("SELECT * FROM Sessions", (err, result) => {
             if (err) throw err;
 
             if (result.length === 0) {
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                 return res.end(JSON.stringify({ error: messages.userMessages.noSession }));
             }
         });
@@ -256,6 +261,7 @@ http.createServer(function (req, res) {
 
             // console.log("Session result:", result);
             if (result.length === 0) {
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                 return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
             }
 
@@ -265,12 +271,12 @@ http.createServer(function (req, res) {
             const ageInMs = now - createdAt;
 
             // Invalidate if older than 1 minute (60,000 ms)
-            if (ageInMs > 60000) {
+            if (ageInMs > SESSION_EXPIRY_MS) {
 
                 con.query("DELETE FROM Sessions WHERE token = ?", [token], (err) => {
                     if (err) console.error("Failed to delete expired session:", err);
                 });
-
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                 return res.end(JSON.stringify({ error: messages.userMessages.sessionExpired }));
             }
 
@@ -323,10 +329,8 @@ http.createServer(function (req, res) {
     else if (req.method === "DELETE" && q.pathname === "/api/v1/deleteUser") {
         deleteCounter++;
 
-        res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
-res.setHeader('Access-Control-Allow-Credentials', 'true');
-res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        setCORSHeaders(res);
+
         res.setHeader('Content-Type', 'application/json');
 
         let query = url.parse(req.url, true).query;
@@ -334,12 +338,14 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
         incrementApiCounter(userID);
         const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
         if (!token) {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
             return res.end(JSON.stringify({ error: messages.userMessages.noToken }));
         }
         con.query("SELECT * FROM Sessions", (err, result) => {
             if (err) throw err;
 
             if (result.length === 0) {
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                 return res.end(JSON.stringify({ error: messages.userMessages.noSession }));
             }
         });
@@ -356,6 +362,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
 
             // console.log("Session result:", result);
             if (result.length === 0) {
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                 return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
             }
 
@@ -365,47 +372,48 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
             const ageInMs = now - createdAt;
 
             // Invalidate if older than 1 minute (60,000 ms)
-            if (ageInMs > 60000 * 60000 * 24) {
+            if (ageInMs > SESSION_EXPIRY_MS) {
 
                 con.query("DELETE FROM Sessions WHERE token = ?", [token], (err) => {
                     if (err) console.error("Failed to delete expired session:", err);
                 });
 
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                 return res.end(JSON.stringify({ error: messages.userMessages.sessionExpired }));
             }
 
 
-            let body = '';
-            req.on('data', chunk => body += chunk.toString());
-            req.on('end', () => {
-                const userData = JSON.parse(body);
+            
+                const userEmail = query.email;
                 console.log("User ID:", userID);
                 con.query("SELECT * FROM Users WHERE userID = ?", [userID], (err, result) => {
                     if (err) throw err;
                     console.log("User data:", result);
                     if (result.length === 0) return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
-                    if (result[0].role !== "admin") return res.end(JSON.stringify({ error: messages.userMessages.notAuthorizedForDeleting }));
+                    if (result[0].role !== "admin"){
+                        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+                        return res.end(JSON.stringify({ error: messages.userMessages.notAuthorizedForDeleting }));
+                    } 
 
                     const sql = "DELETE FROM Users WHERE email = ?";
-                    con.query(sql, [userData.email], (err, result) => {
+                    con.query(sql, [userEmail], (err, result) => {
 
                         if (err) throw err;
                         console.log("Deleted user:", result);
-                        if (result.affectedRows === 0) return res.end(messages.userMessages.userNotFound);
-                        userEmails = userEmails.filter(email => email !== userData.email);
+                        if (result.affectedRows === 0){
+                            res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+                            return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
+                        } 
+                        userEmails = userEmails.filter(email => email !== userEmail);
                         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net' , 'Access-Control-Allow-Credentials': 'true' });
                         res.end(JSON.stringify({ message: messages.userMessages.userDeleted }));
                     });
                 });
             });
-        });
  
     } else if (req.method === "PUT" && q.pathname === "/api/v1/resetPassword") {
         console.log("Reset password request received");
-        res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        setCORSHeaders(res);
         res.setHeader('Content-Type', 'application/json');
         
         let query = url.parse(req.url, true).query;
@@ -415,14 +423,20 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
         req.on('data', chunk => body += chunk.toString());
         req.on('end', () => {
             const { email } = JSON.parse(body);
-            if (!email) return res.end(JSON.stringify({ error: messages.userMessages.EmailRequired }));
+            if (!email) {
+                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+                return res.end(JSON.stringify({ error: messages.userMessages.EmailRequired }));
+            }
         
 
         incrementApiCounter(userID);
         // Check if email exists
         con.query("SELECT * FROM Users WHERE email = ?", [email], (err, result) => {
             if (err) throw err;
-            if (result.length === 0) return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
+            if (result.length === 0) {
+                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+                return res.end(JSON.stringify({ error: messages.userMessages.userNotFound }));
+            }
 
             const token = crypto.randomBytes(32).toString('hex');
             const expiresAt = new Date(Date.now() + 3600000); // 1 hour expiry
@@ -432,8 +446,6 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
                     if (err) throw err;
 
                     // Send Mailjet email
-
-
 
                     const resetUrl = `https://nice-flower-0dc97321e.6.azurestaticapps.net/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
 
@@ -452,6 +464,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
                             res.end(JSON.stringify({ message: messages.userMessages.emailSent }));
                         })
                         .catch(err => {
+
                             res.end(JSON.stringify({ error: messages.userMessages.emailNotSent }));
                         });
                 });
@@ -460,10 +473,8 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
     });
     
     } else if (req.method === "PUT" && q.pathname === "/api/v1/updatePassword") {
-        res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+        setCORSHeaders(res);
+
         
         res.setHeader('Content-Type', 'application/json');
     let body = '';
@@ -501,7 +512,12 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
         });
     });
 
-}
+}else if (req.method === "DELETE" && q.pathname === "/api/v1/logout") {
+    res.setHeader('Set-Cookie', 'token=; HttpOnly; Max-Age=0; SameSite=None; Secure');
+    setCORSHeaders(res);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ message: messages.userMessages.logout }));
+  }
 
 }).listen(8080);
 
@@ -510,4 +526,11 @@ function incrementApiCounter(userID) {
     con.query("UPDATE API SET apiCounter = apiCounter + 1 WHERE userID = ?", [userID], (err, result) => {
         if (err) throw err;
     });
+}
+
+function setCORSHeaders(res) {
+    res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
 }
