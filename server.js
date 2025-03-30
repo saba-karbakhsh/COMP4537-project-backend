@@ -11,6 +11,10 @@ const mailjet = Mailjet.apiConnect(
     process.env.MJ_APIKEY_PRIVATE
 );
 
+const httpProxy = require('http-proxy');
+// Create a proxy server instance pointing to the Flask server
+const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt'});
+
 const con = db.createConnection({
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
@@ -104,7 +108,33 @@ http.createServer(function (req, res) {
         return res.end(JSON.stringify({ message:  messages.userMessages.CORS }));
     }
     console.log("Request received:", req.method, q.pathname);
-    if (req.method === "POST" && q.pathname === "/api/v1/signup") {
+
+    // Define endpoints to proxy (for tracking usage)
+    const proxiedEndpoints = ['/drone/v1/toggle-face-tracking', '/drone/v1/toggle-face-detection'];
+ 
+    // Check if the request should be proxied
+    if (proxiedEndpoints.includes(q.pathname)) {
+        // // Optional: Add authentication check
+        // const authToken = req.headers['authorization'];
+        // if (!authToken) {
+        //     res.writeHead(401, { 'Content-Type': 'text/plain' });
+        //     res.end('Unauthorized');
+        //     return;
+        // }
+        // // Placeholder: Replace with your actual token validation logic
+        // if (authToken !== 'valid-token') {
+        //     res.writeHead(401, { 'Content-Type': 'text/plain' });
+        //     res.end('Invalid token');
+        //     return;
+        // }
+        // // Track usage (e.g., log the request)
+        // console.log(`Proxying request to ${q.pathname} for user with token ${authToken}`);
+        // increment api counter
+        incrementApiCounter(userID);
+        // Forward the request to the Flask server
+        proxy.web(req, res);
+    
+    } else if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
         let body = '';
