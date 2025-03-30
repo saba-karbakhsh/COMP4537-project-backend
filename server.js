@@ -157,7 +157,7 @@ http.createServer(function (req, res) {
         res.setHeader('Content-Type', 'application/json');
         
         const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
-    
+    console.log("Token from cookie:", token);
         if (!token) {
             return res.end(JSON.stringify({ error: "No token provided" }));
         }
