@@ -364,7 +364,7 @@ http.createServer(function (req, res) {
                 });
             });
         });
-
+ 
     } else if (req.method === "PUT" && q.pathname === "/api/v1/resetPassword") {
         console.log("Reset password request received");
         res.setHeader('Access-Control-Allow-Origin', "https://seashell-app-ywypc.ondigitalocean.app");
