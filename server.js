@@ -96,7 +96,7 @@ http.createServer(function (req, res) {
     console.log("Request received:", req.method, q.pathname);
     if (req.method === "OPTIONS") {
         res.writeHead(204, {
-            'Access-Control-Allow-Origin': 'https://seashell-app-ywypc.ondigitalocean.app',
+            'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
             'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE, PUT'
@@ -106,7 +106,7 @@ http.createServer(function (req, res) {
     console.log("Request received:", req.method, q.pathname);
     if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://seashell-app-ywypc.ondigitalocean.app', 'Access-Control-Allow-Credentials': 'true' });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
         let body = '';
         req.on('data', chunk => {
             body += chunk.toString();
@@ -147,7 +147,7 @@ http.createServer(function (req, res) {
             const sql = "SELECT * FROM Users WHERE email = ?";
 
             con.query(sql, [userData.email], (err, result) => {
-                res.setHeader('Access-Control-Allow-Origin', 'https://seashell-app-ywypc.ondigitalocean.app');
+                res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
                 res.setHeader('Access-Control-Allow-Credentials', 'true');
                 res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
                 res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
@@ -196,7 +196,7 @@ http.createServer(function (req, res) {
         incrementApiCounter(userID);
 
         const allowedOrigin = req.headers.origin;
-        res.setHeader('Access-Control-Allow-Origin', 'https://seashell-app-ywypc.ondigitalocean.app');
+        res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
         res.setHeader('Access-Control-Allow-Credentials', 'true');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
@@ -293,7 +293,7 @@ http.createServer(function (req, res) {
     else if (req.method === "DELETE" && q.pathname === "/api/v1/deleteUser") {
         deleteCounter++;
 
-        res.setHeader('Access-Control-Allow-Origin', 'https://seashell-app-ywypc.ondigitalocean.app');
+        res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
 res.setHeader('Access-Control-Allow-Credentials', 'true');
 res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
@@ -363,7 +363,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
                         console.log("Deleted user:", result);
                         if (result.affectedRows === 0) return res.end(messages.userMessages.userNotFound);
                         userEmails = userEmails.filter(email => email !== userData.email);
-                        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://seashell-app-ywypc.ondigitalocean.app' , 'Access-Control-Allow-Credentials': 'true' });
+                        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net' , 'Access-Control-Allow-Credentials': 'true' });
                         res.end(JSON.stringify({ message: messages.userMessages.userDeleted }));
                     });
                 });
@@ -372,7 +372,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
  
     } else if (req.method === "PUT" && q.pathname === "/api/v1/resetPassword") {
         console.log("Reset password request received");
-        res.setHeader('Access-Control-Allow-Origin', 'https://seashell-app-ywypc.ondigitalocean.app');
+        res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
         res.setHeader('Access-Control-Allow-Credentials', 'true');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
@@ -405,7 +405,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
 
 
 
-                    const resetUrl = `https://seashell-app-ywypc.ondigitalocean.app/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
+                    const resetUrl = `https://nice-flower-0dc97321e.6.azurestaticapps.net/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
 
                     const request = mailjet.post("send", { 'version': 'v3.1' }).request({
                         "Messages": [{
@@ -430,7 +430,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
     });
     
     } else if (req.method === "PUT" && q.pathname === "/api/v1/updatePassword") {
-        res.setHeader('Access-Control-Allow-Origin', 'https://seashell-app-ywypc.ondigitalocean.app');
+        res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
         res.setHeader('Access-Control-Allow-Credentials', 'true');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
@@ -445,14 +445,14 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
             userID = result[0].userID;
             incrementApiCounter(userID);
             if (!email || !token || !newPassword) {
-                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://seashell-app-ywypc.ondigitalocean.app' })
+                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net' })
                 return res.end(JSON.stringify({ error: messages.userMessages.invalidReq }));
             }
 
             con.query("SELECT * FROM ResetTokens WHERE email = ? AND token = ?", [email, token], (err, result) => {
                 if (err) throw err;
                 if (result.length === 0 || new Date(result[0].expiresAt) < new Date()) {
-                    res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://seashell-app-ywypc.ondigitalocean.app' })
+                    res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net' })
                     return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
                 }
 
@@ -464,7 +464,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
                     if (err) throw err;
 
                     con.query("DELETE FROM ResetTokens WHERE email = ?", [email]);
-                    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin':'https://seashell-app-ywypc.ondigitalocean.app' });
+                    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin':'https://nice-flower-0dc97321e.6.azurestaticapps.net' });
                     res.end(JSON.stringify({ message: messages.userMessages.passwordUpdated }));
                 });
             });
