@@ -15,12 +15,12 @@ const httpProxy = require('http-proxy');
 // Create a proxy server instance pointing to the Flask server
 const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt'});
 
-// Add CORS headers to all proxied responses
-proxy.on('proxyRes', (proxyRes, req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow all origins
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization','bypass-tunnel-reminder'); // Allowed headers
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE'); // Allowed methods
-});
+// // Add CORS headers to all proxied responses
+// proxy.on('proxyRes', (proxyRes, req, res) => {
+//     res.setHeader('Access-Control-Allow-Origin', '*'); // Allow all origins
+//     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization','bypass-tunnel-reminder'); // Allowed headers
+//     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE'); // Allowed methods
+// });
 
 const con = db.createConnection({
     host: process.env.DB_HOST,
@@ -111,7 +111,7 @@ http.createServer(function (req, res) {
         res.writeHead(204, {
             'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
             'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization','bypass-tunnel-reminder',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE, PUT'
         });
         return res.end(JSON.stringify({ message:  messages.userMessages.CORS }));
@@ -538,6 +538,6 @@ function incrementApiCounter(userID) {
 function setCORSHeaders(res) {
     res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization','bypass-tunnel-reminder');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
 }
