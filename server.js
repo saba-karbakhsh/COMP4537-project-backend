@@ -440,7 +440,7 @@ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT')
     req.on('data', chunk => body += chunk.toString());
     req.on('end', () => {
         const { email, token, newPassword } = JSON.parse(body);
-        con.query("SELECT * FROM USERS WHERE email = ?", [email], (err, result) => {
+        con.query("SELECT * FROM Users WHERE email = ?", [email], (err, result) => {
             if (err) throw err;
             userID = result[0].userID;
             incrementApiCounter(userID);
