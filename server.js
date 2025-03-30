@@ -120,7 +120,7 @@ http.createServer(function (req, res) {
                     const maxAge = 60;
                     const allowedOrigin = req.headers.origin;
 
-                    res.setHeader('Access-Control-Allow-Origin', '*');
+                    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
                     res.setHeader('Access-Control-Allow-Credentials', 'true');
                     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
                     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -149,7 +149,7 @@ http.createServer(function (req, res) {
        
     }else if(req.method === "GET" && q.pathname === "/index") {
         getCounter++;
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
 
         res.writeHead(200, {
