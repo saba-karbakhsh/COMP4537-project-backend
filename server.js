@@ -430,7 +430,7 @@ http.createServer(function (req, res) {
         res.setHeader('Access-Control-Allow-Origin', "http://127.0.0.1:5501");
         res.setHeader('Access-Control-Allow-Credentials', 'true');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
         res.setHeader('Content-Type', 'application/json');
     let body = '';
     req.on('data', chunk => body += chunk.toString());
