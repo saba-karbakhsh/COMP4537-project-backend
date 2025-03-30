@@ -499,7 +499,7 @@ function incrementApiCounter(userID) {
 }
 
 function setCORSHeaders(res) {
-    res.setHeader('Access-Control-Allow-Origin', process.env.CLIENT_ORIGIN);
+    res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
