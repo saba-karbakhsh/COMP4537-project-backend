@@ -120,7 +120,7 @@ http.createServer(function (req, res) {
                     const maxAge = 60;
                     const allowedOrigin = req.headers.origin;
 
-                    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+                    res.setHeader('Access-Control-Allow-Origin', '*');
                     res.setHeader('Access-Control-Allow-Credentials', 'true');
                     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
                     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -149,18 +149,16 @@ http.createServer(function (req, res) {
        
     }else if(req.method === "GET" && q.pathname === "/index") {
         getCounter++;
-        console.log("GET request received");
-        console.log("GET cookie: ", req.headers);
-    
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+
         res.writeHead(200, {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Credentials': 'true'
         });
     
         const token = req.headers.cookie ? req.headers.cookie.split('; ').find(row => row.startsWith('token=')).split('=')[1] : null;
-        console.log("req header:", req.headers);
-        console.log("Token from cookie:", token);
+       
         if (!token) {
             console.log("No token provided");
             return res.end(JSON.stringify({ error: "No token provided" }));
@@ -177,12 +175,12 @@ http.createServer(function (req, res) {
         if (err) throw err;
 
         if (result.length === 0) {
-            console.log("No session found for token");
             return res.end(JSON.stringify({ error: "Invalid token" }));
         }
 
         const user = result[0];
 
+        console.log("User found:", user);
         if (user.role === 'admin') {
             // Admin: get all users and their API counters
             const allUsersSql = `
