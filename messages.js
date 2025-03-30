@@ -15,5 +15,6 @@ exports.userMessages ={
     "emailNotSent":  "Failed to send email.",
     "invalidReq": "Invalid request.",
     "passwordUpdated": "Password updated successfully.",
-    "CORS": "CORS preflight response"
+    "CORS": "CORS preflight response",
+    "logout": "Logout successful"
 };
