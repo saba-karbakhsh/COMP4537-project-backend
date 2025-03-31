@@ -13,7 +13,13 @@ const mailjet = Mailjet.apiConnect(
 
 const httpProxy = require('http-proxy');
 // Create a proxy server instance pointing to the Flask server
-const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt' ,secure: false});
+const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt', secure: false, timeout: 10000});
+
+proxy.on('error', (err, req, res) => {
+    console.error('Proxy error:', err);
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('Proxy error occurred');
+});
 
 // Add CORS headers to all proxied responses
 proxy.on('proxyRes', (proxyRes, req, res) => {
