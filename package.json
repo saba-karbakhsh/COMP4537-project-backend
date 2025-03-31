@@ -3,6 +3,7 @@
     "dotenv": "^16.4.7",
     "mysql2": "^3.13.0",
     "node-mailjet": "^6.0.8",
-    "http-proxy": "^1.18.1"
+    "http-proxy": "^1.18.1",
+    "node-fetch": "^3.3.1"
   }
 }
