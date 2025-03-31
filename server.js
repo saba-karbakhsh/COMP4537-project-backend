@@ -14,6 +14,7 @@ const mailjet = Mailjet.apiConnect(
 const httpProxy = require('http-proxy');
 // Create a proxy server instance pointing to the Flask server
 const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt', secure: false, timeout: 10000});
+const fetch = require('node-fetch');
 
 proxy.on('error', (err, req, res) => {
     console.error(`Proxy error for ${req.url}: ${err.message}`);
@@ -140,7 +141,7 @@ http.createServer(function (req, res) {
  
     // Check if the request should be proxied
     if (proxiedEndpoints.includes(q.pathname)) {
-        console.log(`########################\n#####################\nProxying request to ${q.pathname}\n#####################\n########################`);
+        console.log(`########################\nProxying request to ${q.pathname}\n########################`);
         // // Optional: Add authentication check
         // const authToken = req.headers['authorization'];
         // if (!authToken) {
@@ -159,7 +160,35 @@ http.createServer(function (req, res) {
         // increment api counter
         // incrementApiCounter(userID);
         // Forward the request to the Flask server
-        proxy.web(req, res);
+        // proxy.web(req, res);
+
+        // Use fetch to make the request to the Flask server
+        fetch('https://comp4537g2.loca.lt/drone/v1/toggle-face-detection')
+                .then(response => {
+                    // Capture the status code
+                    const status = response.status;
+                    return response.text().then(text => ({ status, text }));
+                })
+                .then(({ status, text }) => {
+                    res.writeHead(200, {
+                        'Content-Type': 'text/plain',
+                        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+                        'Access-Control-Allow-Credentials': 'true',
+                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+                    });
+                    res.end(`Status: ${status}, Body: ${text}`);
+                })
+                .catch(err => {
+                    res.writeHead(500, {
+                        'Content-Type': 'text/plain',
+                        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+                        'Access-Control-Allow-Credentials': 'true',
+                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+                    });
+                    res.end(`Error: ${err.message}`);
+                });
     
     } else if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
