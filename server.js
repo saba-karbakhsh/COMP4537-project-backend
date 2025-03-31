@@ -12,35 +12,34 @@ const mailjet = Mailjet.apiConnect(
 );
 const PORT = process.env.PORT || 8080;
 
-const httpProxy = require('http-proxy');
+// const httpProxy = require('http-proxy');
 // Create a proxy server instance pointing to the Flask server
-const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt', secure: false, timeout: 10000});
-// const fetch = require('node-fetch');
+// const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt', secure: false, timeout: 10000});
 
-proxy.on('error', (err, req, res) => {
-    console.error(`Proxy error for ${req.url}: ${err.message}`);
-    res.writeHead(5044, {  // Use 504 for timeouts instead of 500
-        'Content-Type': 'text/plain',
-        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-    });
-    res.end('Proxy error occurred: Upstream server timeout or unavailable');
-});
+// proxy.on('error', (err, req, res) => {
+//     console.error(`Proxy error for ${req.url}: ${err.message}`);
+//     res.writeHead(5044, {  // Use 504 for timeouts instead of 500
+//         'Content-Type': 'text/plain',
+//         'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+//         'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+//         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+//     });
+//     res.end('Proxy error occurred: Upstream server timeout or unavailable');
+// });
 
-// Log when the proxy starts the request
-proxy.on('proxyReq', (proxyReq, req, res) => {
-    console.log(`Proxying request to ${req.url} at ${new Date().toISOString()}`);
-});
+// // Log when the proxy starts the request
+// proxy.on('proxyReq', (proxyReq, req, res) => {
+//     console.log(`Proxying request to ${req.url} at ${new Date().toISOString()}`);
+// });
 
-// Add CORS headers to all proxied responses
-proxy.on('proxyRes', (proxyRes, req, res) => {
-    console.log(`Received response from upstream for ${req.url}: ${proxyRes.statusCode}`);
-    res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, bypass-tunnel-reminder');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-});
+// // Add CORS headers to all proxied responses
+// proxy.on('proxyRes', (proxyRes, req, res) => {
+//     console.log(`Received response from upstream for ${req.url}: ${proxyRes.statusCode}`);
+//     res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
+//     res.setHeader('Access-Control-Allow-Credentials', 'true');
+//     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, bypass-tunnel-reminder');
+//     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+// });
 
 const con = db.createConnection({
     host: process.env.DB_HOST,
@@ -164,14 +163,16 @@ http.createServer(function (req, res) {
         // Forward the request to the Flask server
         // proxy.web(req, res);
 
-        // Use fetch to make the request to the Flask server
-        fetch('https://comp4537g2.loca.lt/drone/v1/toggle-face-detection')
+        // Handle the /drone/v1/toggle-face-detection endpoint
+        if (q.pathname === '/drone/v1/toggle-face-detection') {
+            // Use fetch to call the Flask server directly
+            fetch('https://comp4537g2.loca.lt/drone/v1/toggle-face-detection')
                 .then(response => {
-                    // Capture the status code
-                    const status = response.status;
-                    return response.text().then(text => ({ status, text }));
+                    const status = response.status; // Capture the status code
+                    return response.text().then(text => ({ status, text })); // Get the response body as text
                 })
                 .then(({ status, text }) => {
+                    // Send the response back to the client
                     res.writeHead(200, {
                         'Content-Type': 'text/plain',
                         'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
@@ -179,9 +180,10 @@ http.createServer(function (req, res) {
                         'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
                         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
                     });
-                    res.end(`Status: ${status}, Body: ${text}`);
+                    res.end(text);
                 })
                 .catch(err => {
+                    // Handle any errors from the fetch call
                     res.writeHead(500, {
                         'Content-Type': 'text/plain',
                         'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
@@ -191,6 +193,36 @@ http.createServer(function (req, res) {
                     });
                     res.end(`Error: ${err.message}`);
                 });
+        } else if (q.pathname === '/drone/v1/toggle-face-tracking') {
+            // Use fetch to call the Flask server directly
+            fetch('https://comp4537g2.loca.lt/drone/v1/toggle-face-tracking')
+                .then(response => {
+                    const status = response.status; // Capture the status code
+                    return response.text().then(text => ({ status, text })); // Get the response body as text
+                })
+                .then(({ status, text }) => {
+                    // Send the response back to the client
+                    res.writeHead(200, {
+                        'Content-Type': 'text/plain',
+                        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+                        'Access-Control-Allow-Credentials': 'true',
+                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+                    });
+                    res.end(text);
+                })
+                .catch(err => {
+                    // Handle any errors from the fetch call
+                    res.writeHead(500, {
+                        'Content-Type': 'text/plain',
+                        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+                        'Access-Control-Allow-Credentials': 'true',
+                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+                    });
+                    res.end(`Error: ${err.message}`);
+                });
+        }
     
     } else if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
