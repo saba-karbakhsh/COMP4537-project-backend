@@ -151,7 +151,7 @@ http.createServer(function (req, res) {
         // // Track usage (e.g., log the request)
         // console.log(`Proxying request to ${q.pathname} for user with token ${authToken}`);
         // increment api counter
-        incrementApiCounter(userID);
+        // incrementApiCounter(userID);
         // Forward the request to the Flask server
         proxy.web(req, res);
     
