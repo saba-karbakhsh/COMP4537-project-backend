@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 8080;
 const httpProxy = require('http-proxy');
 // Create a proxy server instance pointing to the Flask server
 const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt', secure: false, timeout: 10000});
-const fetch = require('node-fetch');
+// const fetch = require('node-fetch');
 
 proxy.on('error', (err, req, res) => {
     console.error(`Proxy error for ${req.url}: ${err.message}`);
@@ -143,7 +143,7 @@ http.createServer(function (req, res) {
  
     // Check if the request should be proxied
     if (proxiedEndpoints.includes(q.pathname)) {
-        console.log(`########################\nProxying request to ${q.pathname}\n########################`);
+        // console.log(`########################\nProxying request to ${q.pathname}\n########################`);
         // // Optional: Add authentication check
         // const authToken = req.headers['authorization'];
         // if (!authToken) {
