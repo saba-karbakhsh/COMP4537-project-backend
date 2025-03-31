@@ -29,6 +29,8 @@ proxy.on('error', (err, req, res) => {
 // Add CORS headers to all proxied responses
 proxy.on('proxyRes', (proxyRes, req, res) => {
     res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
+    res.setHeader('Access-Control-Allow-Credentials': 'true');
+
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, bypass-tunnel-reminder');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 });
