@@ -134,6 +134,7 @@ http.createServer(function (req, res) {
  
     // Check if the request should be proxied
     if (proxiedEndpoints.includes(q.pathname)) {
+        console.log(`########################\n#####################\nProxying request to ${q.pathname}\n#####################\n########################`);
         // // Optional: Add authentication check
         // const authToken = req.headers['authorization'];
         // if (!authToken) {
