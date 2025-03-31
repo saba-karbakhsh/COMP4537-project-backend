@@ -16,7 +16,7 @@ const httpProxy = require('http-proxy');
 const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt', secure: false, timeout: 10000});
 
 proxy.on('error', (err, req, res) => {
-    console.error('Proxy error:', err);
+    console.error(`Proxy error for ${req.url}: ${err.message}`);
     res.writeHead(5044, {  // Use 504 for timeouts instead of 500
         'Content-Type': 'text/plain',
         'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
@@ -26,11 +26,15 @@ proxy.on('error', (err, req, res) => {
     res.end('Proxy error occurred: Upstream server timeout or unavailable');
 });
 
+// Log when the proxy starts the request
+proxy.on('proxyReq', (proxyReq, req, res) => {
+    console.log(`Proxying request to ${req.url} at ${new Date().toISOString()}`);
+});
+
 // Add CORS headers to all proxied responses
 proxy.on('proxyRes', (proxyRes, req, res) => {
+    console.log(`Received response from upstream for ${req.url}: ${proxyRes.statusCode}`);
     res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, bypass-tunnel-reminder');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 });
