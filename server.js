@@ -13,7 +13,7 @@ const mailjet = Mailjet.apiConnect(
 
 const httpProxy = require('http-proxy');
 // Create a proxy server instance pointing to the Flask server
-const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt'});
+const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt' ,secure: false});
 
 // // Add CORS headers to all proxied responses
 // proxy.on('proxyRes', (proxyRes, req, res) => {
@@ -484,47 +484,47 @@ http.createServer(function (req, res) {
 
         
         res.setHeader('Content-Type', 'application/json');
-    let body = '';
-    req.on('data', chunk => body += chunk.toString());
-    req.on('end', () => {
-        const { email, token, newPassword } = JSON.parse(body);
-        con.query("SELECT * FROM Users WHERE email = ?", [email], (err, result) => {
-            if (err) throw err;
-            userID = result[0].userID;
-            incrementApiCounter(userID);
-            if (!email || !token || !newPassword) {
-                res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net' })
-                return res.end(JSON.stringify({ error: messages.userMessages.invalidReq }));
-            }
-
-            con.query("SELECT * FROM ResetTokens WHERE email = ? AND token = ?", [email, token], (err, result) => {
+        let body = '';
+        req.on('data', chunk => body += chunk.toString());
+        req.on('end', () => {
+            const { email, token, newPassword } = JSON.parse(body);
+            con.query("SELECT * FROM Users WHERE email = ?", [email], (err, result) => {
                 if (err) throw err;
-                if (result.length === 0 || new Date(result[0].expiresAt) < new Date()) {
+                userID = result[0].userID;
+                incrementApiCounter(userID);
+                if (!email || !token || !newPassword) {
                     res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net' })
-                    return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
+                    return res.end(JSON.stringify({ error: messages.userMessages.invalidReq }));
                 }
 
-                // Hash new password
-                const salt = crypto.randomBytes(16).toString('hex');
-                const hashedPassword = crypto.pbkdf2Sync(newPassword, salt, 100000, 64, 'sha512').toString('hex');
-
-                con.query("UPDATE Users SET password = ?, salt = ? WHERE email = ?", [hashedPassword, salt, email], (err) => {
+                con.query("SELECT * FROM ResetTokens WHERE email = ? AND token = ?", [email, token], (err, result) => {
                     if (err) throw err;
+                    if (result.length === 0 || new Date(result[0].expiresAt) < new Date()) {
+                        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net' })
+                        return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
+                    }
 
-                    con.query("DELETE FROM ResetTokens WHERE email = ?", [email]);
-                    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin':'https://nice-flower-0dc97321e.6.azurestaticapps.net' });
-                    res.end(JSON.stringify({ message: messages.userMessages.passwordUpdated }));
+                    // Hash new password
+                    const salt = crypto.randomBytes(16).toString('hex');
+                    const hashedPassword = crypto.pbkdf2Sync(newPassword, salt, 100000, 64, 'sha512').toString('hex');
+
+                    con.query("UPDATE Users SET password = ?, salt = ? WHERE email = ?", [hashedPassword, salt, email], (err) => {
+                        if (err) throw err;
+
+                        con.query("DELETE FROM ResetTokens WHERE email = ?", [email]);
+                        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin':'https://nice-flower-0dc97321e.6.azurestaticapps.net' });
+                        res.end(JSON.stringify({ message: messages.userMessages.passwordUpdated }));
+                    });
                 });
             });
         });
-    });
 
-}else if (req.method === "DELETE" && q.pathname === "/api/v1/logout") {
-    res.setHeader('Set-Cookie', 'token=; HttpOnly; Max-Age=0; SameSite=None; Secure');
-    setCORSHeaders(res);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ message: messages.userMessages.logout }));
-  }
+    } else if (req.method === "DELETE" && q.pathname === "/api/v1/logout") {
+        res.setHeader('Set-Cookie', 'token=; HttpOnly; Max-Age=0; SameSite=None; Secure');
+        setCORSHeaders(res);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: messages.userMessages.logout }));
+    }
 
 }).listen(8080);
 
