@@ -10,6 +10,7 @@ const mailjet = Mailjet.apiConnect(
     process.env.MJ_APIKEY_PUBLIC,
     process.env.MJ_APIKEY_PRIVATE
 );
+const PORT = process.env.PORT || 8080;
 
 const httpProxy = require('http-proxy');
 // Create a proxy server instance pointing to the Flask server
@@ -544,7 +545,7 @@ http.createServer(function (req, res) {
         res.end(JSON.stringify({ message: messages.userMessages.logout }));
     }
 
-}).listen(8080);
+}).listen(PORT);
 
 
 function incrementApiCounter(userID) {
