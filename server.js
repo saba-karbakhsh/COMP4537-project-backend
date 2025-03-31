@@ -109,7 +109,7 @@ http.createServer(function (req, res) {
     console.log("Request received:", req.method, q.pathname);
     if (req.method === "OPTIONS") {
         res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
             'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE, PUT'
