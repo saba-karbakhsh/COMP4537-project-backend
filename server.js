@@ -134,126 +134,7 @@ http.createServer(function (req, res) {
  
     // Check if the request should be proxied
     if (proxiedEndpoints.includes(q.pathname)) {
-        // setCORSHeaders(res);
         console.log(`########################\n#####################\nProxying request to ${q.pathname}\n#####################\n########################`);
-        // res.setHeader('Content-Type', 'application/json');
-
-        // // Attempt an HTTPS request to google.com
-        // https.get('https://google.com', (response) => {
-        //     console.log('Successfully connected to https://google.com');
-        //     res.writeHead(200, { 'Content-Type': 'application/json' });
-        //     res.end(JSON.stringify({ 
-        //         message: 'Outbound access successful', 
-        //         status: response.statusCode 
-        //     }));
-        // }).on('error', (err) => {
-        //     console.error('Error connecting to https://google.com:', err.message);
-        //     res.writeHead(500, { 'Content-Type': 'application/json' });
-        //     res.end(JSON.stringify({ 
-        //         error: 'Outbound access failed', 
-        //         details: err.message 
-        //     }));
-        // });
-
-        let userID = 6;
-        let error = null;
-        incrementApiCounter(userID);
-
-        const allowedOrigin = req.headers.origin;
-        setCORSHeaders(res);
-
-        res.setHeader('Content-Type', 'application/json');
-        
-        // const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
-        // if (!token) {
-        //     res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
-        //     return res.end(JSON.stringify({ error: messages.userMessages.noToken }));
-        // }
-        con.query("SELECT * FROM Sessions", (err, result) => {
-            if (err) throw err;
-
-            if (true) {
-                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
-                return res.end(JSON.stringify({ error: messages.userMessages.noSession }));
-            }
-        });
-
-        const sessionSql = `
-            SELECT Users.email, Users.role, Users.userID
-            FROM Sessions   
-            JOIN Users ON Sessions.userID = Users.userID
-            WHERE Sessions.token = ?
-        `;
-
-        con.query(sessionSql, [token], (err, result) => {
-            if (err) throw err;
-
-            // console.log("Session result:", result);
-            if (result.length === 0) {
-                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
-                return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
-            }
-
-            const session = result[0];
-            const now = new Date();
-            const createdAt = new Date(session.createdAt);
-            const ageInMs = now - createdAt;
-
-            // Invalidate if older than 1 minute (60,000 ms)
-            if (ageInMs > SESSION_EXPIRY_MS) {
-
-                con.query("DELETE FROM Sessions WHERE token = ?", [token], (err) => {
-                    if (err) console.error("Failed to delete expired session:", err);
-                });
-                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
-                return res.end(JSON.stringify({ error: messages.userMessages.sessionExpired }));
-            }
-
-            const user = session;
-
-            if (user.role === 'admin') {
-                const allUsersSql = `
-                    SELECT Users.userID, Users.email, Users.role, API.apiCounter
-                    FROM Users
-                    LEFT JOIN API ON Users.userID = API.userID
-                `;
-
-                con.query(allUsersSql, (err, allResults) => {
-                    allResults = allResults.filter(user => user.role !== 'admin');
-                    if (err) throw err;
-                    
-                    return res.end(JSON.stringify({
-                        role: 'admin',
-                        email: user.email,
-                        userID: user.userID,
-                        putCounter: putCounter,
-                        postCounter: postCounter,
-                        getCounter: getCounter,
-                        deleteCounter: deleteCounter,
-                        usersData: allResults
-                    }));
-                });
-
-            } else {
-                const userApiSql = `SELECT apiCounter FROM API WHERE userID = ?`;
-
-                con.query(userApiSql, [user.userID], (err, apiResult) => {
-                    if (err) throw err;
-
-                    const apiCounter = apiResult.length > 0 ? apiResult[0].apiCounter : 0;
-
-                    const userData = {
-                        email: user.email,
-                        role: user.role,
-                        userID: user.userID,
-                        apiCounter: apiCounter
-                    };
-
-                    return res.end(JSON.stringify(userData));
-                });
-            }
-        });
-        
         // // Optional: Add authentication check
         // const authToken = req.headers['authorization'];
         // if (!authToken) {
@@ -270,9 +151,9 @@ http.createServer(function (req, res) {
         // // Track usage (e.g., log the request)
         // console.log(`Proxying request to ${q.pathname} for user with token ${authToken}`);
         // increment api counter
-        // incrementApiCounter(userID);
+        incrementApiCounter(userID);
         // Forward the request to the Flask server
-        // proxy.web(req, res);
+        proxy.web(req, res);
     
     } else if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
