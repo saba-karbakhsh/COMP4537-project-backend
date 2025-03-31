@@ -5,33 +5,32 @@ const url = require('url');
 const messages = require('./messages');
 const crypto = require('crypto');
 const Mailjet = require('node-mailjet');
-const fetch = require('node-fetch');
 require('dotenv').config();
 const mailjet = Mailjet.apiConnect(
     process.env.MJ_APIKEY_PUBLIC,
     process.env.MJ_APIKEY_PRIVATE
 );
 
-// const httpProxy = require('http-proxy');
-// // Create a proxy server instance pointing to the Flask server
-// const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt', secure: false, timeout: 10000});
+const httpProxy = require('http-proxy');
+// Create a proxy server instance pointing to the Flask server
+const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt', secure: false, timeout: 10000});
 
-// proxy.on('error', (err, req, res) => {
-//     console.error('Proxy error:', err);
-//     res.writeHead(500, { 'Content-Type': 'text/plain' });
-//     res.end('Proxy error occurred');
-// });
+proxy.on('error', (err, req, res) => {
+    console.error('Proxy error:', err);
+    res.writeHead(504, {  // Use 504 for timeouts instead of 500
+        'Content-Type': 'text/plain',
+        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+    });
+    res.end('Proxy error occurred: Upstream server timeout or unavailable');
+});
 
-// // Add CORS headers to all proxied responses
-// proxy.on('proxyRes', (proxyRes, req, res) => {
-//     res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
-//     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, bypass-tunnel-reminder');
-//     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-// });
-
-// Create an HTTPS agent to handle localtunnel's self-signed SSL certificate
-const agent = new https.Agent({
-    rejectUnauthorized: false // Ignore SSL validation for development
+// Add CORS headers to all proxied responses
+proxy.on('proxyRes', (proxyRes, req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, bypass-tunnel-reminder');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 });
 
 const con = db.createConnection({
@@ -152,30 +151,8 @@ http.createServer(function (req, res) {
         // console.log(`Proxying request to ${q.pathname} for user with token ${authToken}`);
         // increment api counter
         incrementApiCounter(userID);
-        // // Forward the request to the Flask server
-        // proxy.web(req, res);
-        const laptopUrl = `https://comp4537g2.loca.lt${req.path}`; // Match the front-end path
-
-        fetch(laptopUrl, {
-            method: 'GET',
-            headers: {
-                'bypass-tunnel-reminder': 'true' // Required by localtunnel
-            },
-            agent: agent // Handle SSL
-        })
-        .then(response => response.json().then(data => ({ status: response.status, data })))
-        .then(({ status, data }) => {
-            setCORSHeaders(res);
-            res.setHeader('Content-Type', 'application/json');
-            res.statusCode = status;
-            res.end(JSON.stringify(data));
-        })
-        .catch(error => {
-            console.error('Error fetching from laptop server:', error);
-            setCORSHeaders(res);
-            res.statusCode = 500;
-            res.end(JSON.stringify({ error: 'Internal server error' }));
-        });
+        // Forward the request to the Flask server
+        proxy.web(req, res);
     
     } else if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
