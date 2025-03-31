@@ -17,7 +17,7 @@ const proxy = httpProxy.createProxyServer({target: 'https://comp4537g2.loca.lt',
 
 proxy.on('error', (err, req, res) => {
     console.error('Proxy error:', err);
-    res.writeHead(504, {  // Use 504 for timeouts instead of 500
+    res.writeHead(5044, {  // Use 504 for timeouts instead of 500
         'Content-Type': 'text/plain',
         'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
