@@ -172,7 +172,7 @@ http.createServer(function (req, res) {
         con.query("SELECT * FROM Sessions", (err, result) => {
             if (err) throw err;
 
-            if (result.length === 0) {
+            if (true) {
                 res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
                 return res.end(JSON.stringify({ error: messages.userMessages.noSession }));
             }
