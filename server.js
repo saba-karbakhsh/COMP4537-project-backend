@@ -135,6 +135,24 @@ http.createServer(function (req, res) {
     // Check if the request should be proxied
     if (proxiedEndpoints.includes(q.pathname)) {
         console.log(`########################\n#####################\nProxying request to ${q.pathname}\n#####################\n########################`);
+        
+        // Attempt an HTTPS request to google.com
+        https.get('https://google.com', (response) => {
+            console.log('Successfully connected to https://google.com');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+                message: 'Outbound access successful', 
+                status: response.statusCode 
+            }));
+        }).on('error', (err) => {
+            console.error('Error connecting to https://google.com:', err.message);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+                error: 'Outbound access failed', 
+                details: err.message 
+            }));
+        });
+        
         // // Optional: Add authentication check
         // const authToken = req.headers['authorization'];
         // if (!authToken) {
