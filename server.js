@@ -134,6 +134,7 @@ http.createServer(function (req, res) {
  
     // Check if the request should be proxied
     if (proxiedEndpoints.includes(q.pathname)) {
+        setCORSHeaders(res);
         console.log(`########################\n#####################\nProxying request to ${q.pathname}\n#####################\n########################`);
         
         // Attempt an HTTPS request to google.com
