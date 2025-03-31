@@ -36,6 +36,7 @@ proxy.on('proxyReq', (proxyReq, req, res) => {
 proxy.on('proxyRes', (proxyRes, req, res) => {
     console.log(`Received response from upstream for ${req.url}: ${proxyRes.statusCode}`);
     res.setHeader('Access-Control-Allow-Origin', 'https://nice-flower-0dc97321e.6.azurestaticapps.net');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, bypass-tunnel-reminder');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 });
