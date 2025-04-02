@@ -349,7 +349,7 @@ http.createServer(function (req, res) {
                             if (err) throw err;
 
                             res.writeHead(200, {
-                                'Set-Cookie': `token=${sessionToken}; HttpOnly; Max-Age=${maxAge};SameSite=None; Secure; Path='/'`,
+                                'Set-Cookie': `token=${sessionToken}; HttpOnly; Max-Age=${maxAge};SameSite=None; Secure; Path=/`,
                                 'Content-Type': 'application/json',
                             });
 
