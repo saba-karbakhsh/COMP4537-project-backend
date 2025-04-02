@@ -163,66 +163,117 @@ http.createServer(function (req, res) {
         // Forward the request to the Flask server
         // proxy.web(req, res);
 
-        // Handle the /drone/v1/toggle-face-detection endpoint
-        if (q.pathname === '/drone/v1/toggle-face-detection') {
-            // Use fetch to call the Flask server directly
-            fetch('https://comp4537g2.loca.lt/drone/v1/toggle-face-detection')
-                .then(response => {
-                    const status = response.status; // Capture the status code
-                    return response.text().then(text => ({ status, text })); // Get the response body as text
-                })
-                .then(({ status, text }) => {
-                    // Send the response back to the client
-                    res.writeHead(200, {
-                        'Content-Type': 'text/plain',
-                        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
-                        'Access-Control-Allow-Credentials': 'true',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
-                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-                    });
-                    res.end(text);
-                })
-                .catch(err => {
-                    // Handle any errors from the fetch call
-                    res.writeHead(500, {
-                        'Content-Type': 'text/plain',
-                        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
-                        'Access-Control-Allow-Credentials': 'true',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
-                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-                    });
-                    res.end(`Error: ${err.message}`);
-                });
-        } else if (q.pathname === '/drone/v1/toggle-face-tracking') {
-            // Use fetch to call the Flask server directly
-            fetch('https://comp4537g2.loca.lt/drone/v1/toggle-face-tracking')
-                .then(response => {
-                    const status = response.status; // Capture the status code
-                    return response.text().then(text => ({ status, text })); // Get the response body as text
-                })
-                .then(({ status, text }) => {
-                    // Send the response back to the client
-                    res.writeHead(200, {
-                        'Content-Type': 'text/plain',
-                        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
-                        'Access-Control-Allow-Credentials': 'true',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
-                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-                    });
-                    res.end(text);
-                })
-                .catch(err => {
-                    // Handle any errors from the fetch call
-                    res.writeHead(500, {
-                        'Content-Type': 'text/plain',
-                        'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
-                        'Access-Control-Allow-Credentials': 'true',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
-                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-                    });
-                    res.end(`Error: ${err.message}`);
-                });
+        getCounter++;
+        let query = url.parse(req.url, true).query;
+        let userID = query.userID;
+        
+        const token = req.headers.cookie?.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+        if (!token) {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+            return res.end(JSON.stringify({ error: messages.userMessages.noToken }));
         }
+        con.query("SELECT * FROM Sessions", (err, result) => {
+            if (err) throw err;
+
+            if (result.length === 0) {
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+                return res.end(JSON.stringify({ error: messages.userMessages.noSession }));
+            }
+        });
+        const sessionSql = `
+            SELECT Users.email, Users.role, Users.userID
+            FROM Sessions   
+            JOIN Users ON Sessions.userID = Users.userID
+            WHERE Sessions.token = ?
+        `;
+        con.query(sessionSql, [token], (err, result) => {
+            if (err) throw err;
+
+            // console.log("Session result:", result);
+            if (result.length === 0) {
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+                return res.end(JSON.stringify({ error: messages.userMessages.invalidToken }));
+            }
+
+            const session = result[0];
+            const now = new Date();
+            const createdAt = new Date(session.createdAt);
+            const ageInMs = now - createdAt;
+
+            // Invalidate if older than 1 minute (60,000 ms)
+            if (ageInMs > SESSION_EXPIRY_MS) {
+
+                con.query("DELETE FROM Sessions WHERE token = ?", [token], (err) => {
+                    if (err) console.error("Failed to delete expired session:", err);
+                });
+                res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net', 'Access-Control-Allow-Credentials': 'true' });
+                return res.end(JSON.stringify({ error: messages.userMessages.sessionExpired }));
+            }
+            const user = session;
+
+            // Handle the /drone/v1/toggle-face-detection endpoint
+            if (q.pathname === '/drone/v1/toggle-face-detection') {
+                // Use fetch to call the Flask server directly
+                fetch('https://comp4537g2.loca.lt/drone/v1/toggle-face-detection')
+                    .then(response => {
+                        const status = response.status; // Capture the status code
+                        return response.text().then(text => ({ status, text })); // Get the response body as text
+                    })
+                    .then(({ status, text }) => {
+                        // Send the response back to the client
+                        res.writeHead(200, {
+                            'Content-Type': 'text/plain',
+                            'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+                            'Access-Control-Allow-Credentials': 'true',
+                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+                        });
+                        incrementApiCounter(userID);
+                        res.end(text);
+                    })
+                    .catch(err => {
+                        // Handle any errors from the fetch call
+                        res.writeHead(500, {
+                            'Content-Type': 'text/plain',
+                            'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+                            'Access-Control-Allow-Credentials': 'true',
+                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+                        });
+                        res.end(`Error: ${err.message}`);
+                    });
+            } else if (q.pathname === '/drone/v1/toggle-face-tracking') {
+                // Use fetch to call the Flask server directly
+                fetch('https://comp4537g2.loca.lt/drone/v1/toggle-face-tracking')
+                    .then(response => {
+                        const status = response.status; // Capture the status code
+                        return response.text().then(text => ({ status, text })); // Get the response body as text
+                    })
+                    .then(({ status, text }) => {
+                        // Send the response back to the client
+                        res.writeHead(200, {
+                            'Content-Type': 'text/plain',
+                            'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+                            'Access-Control-Allow-Credentials': 'true',
+                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+                        });
+                        incrementApiCounter(userID);
+                        res.end(text);
+                    })
+                    .catch(err => {
+                        // Handle any errors from the fetch call
+                        res.writeHead(500, {
+                            'Content-Type': 'text/plain',
+                            'Access-Control-Allow-Origin': 'https://nice-flower-0dc97321e.6.azurestaticapps.net',
+                            'Access-Control-Allow-Credentials': 'true',
+                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, bypass-tunnel-reminder',
+                            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+                        });
+                        res.end(`Error: ${err.message}`);
+                    });
+            }
+        });
     
     } else if (req.method === "POST" && q.pathname === "/api/v1/signup") {
         postCounter++;
